@@ -8,6 +8,15 @@ import pandas as pd
 from SpeechRecognizer import SpeechRecognizer
 
 def convert_samples_to_float32(samples):
+    """
+    Convert audio samples to float32 format. This function normalizes integer samples to the range [-1, 1].
+    
+    Parameters:
+    samples (np.ndarray): Input audio samples.
+
+    Returns:
+    np.ndarray: Audio samples in float32 format.
+    """
     float32_samples = samples.astype('float32')
     if samples.dtype in np.sctypes['int']:
         bits = np.iinfo(samples.dtype).bits
@@ -18,8 +27,19 @@ def convert_samples_to_float32(samples):
         raise TypeError("Unsupported sample type: %s." % samples.dtype)
     return float32_samples
 
-
 def load_audio(audio_file):
+    """
+    Load and preprocess an audio file. The function converts the audio to mono, resamples to 16 kHz, and converts
+    samples to float32 format suitable for deep learning models.
+
+    Parameters:
+    audio_file (str): Path to the audio file.
+
+    Returns:
+    tuple: A tuple containing:
+        - features (torch.Tensor): Preprocessed audio features.
+        - length (torch.Tensor): Length of the audio sequence.
+    """
     samples = AudioSegment.from_file(audio_file)
     sample_rate = samples.frame_rate
     target_sr = 16000
@@ -41,22 +61,49 @@ def load_audio(audio_file):
     length = torch.tensor([features.shape[1]]).long()
     return features, length
 
-
 class AudioDataset(torch.utils.data.Dataset):
+    """
+    Custom Dataset class for loading audio files for deep learning models.
+    """
     def __init__(self, audio_files):
+        """
+        Initialize the dataset with a list of audio files.
+
+        Parameters:
+        audio_files (list): List of paths to audio files.
+        """
         self.audio_files = audio_files
     
     def __len__(self):
+        """
+        Return the number of audio files in the dataset.
+
+        Returns:
+        int: Number of audio files.
+        """
         return len(self.audio_files)
 
     def __getitem__(self, index):
+        """
+        Get the audio features and length for a given index.
+
+        Parameters:
+        index (int): Index of the audio file.
+
+        Returns:
+        tuple: A tuple containing:
+            - features (torch.Tensor): Preprocessed audio features.
+            - length (torch.Tensor): Length of the audio sequence.
+        """
         audio_file = self.audio_files[index]
         f, fl = load_audio(audio_file)
         return f, fl
 
-
 if __name__ == "__main__":
-
+    """
+    Main function to load a static quantized model, preprocess audio files, and calculate the Word Error Rate (WER)
+    on a dataset.
+    """
     torch.backends.quantized.engine = 'qnnpack' #mobile or arm based 
 
     model = torch.jit.load("Path_to_static_quantized_model.pt")
@@ -83,7 +130,7 @@ if __name__ == "__main__":
             predictions.append(pred)
             infer_time.append(end-start)
     
-    print("Average inference time : ",sum(infer_time)/len(infer_time))
+    print("Average inference time : ", sum(infer_time) / len(infer_time))
 
     df = pd.read_csv("Path_to_CSV")
     df = df.assign(static_quantised_cpu=predictions)

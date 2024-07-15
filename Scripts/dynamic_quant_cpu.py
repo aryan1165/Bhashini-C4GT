@@ -1,4 +1,4 @@
-import numpy as np 
+import numpy as np
 from torch import Tensor
 import torch
 from torch.utils.mobile_optimizer import optimize_for_mobile
@@ -8,11 +8,15 @@ from torch.quantization import per_channel_dynamic_qconfig
 from torch.quantization import quantize_dynamic_jit
 from SpeechRecognizer import SpeechRecognizer
 
-
 def convert_samples_to_float32(samples):
-    """Convert sample type to float32.
-    Audio sample type is usually integer or float-point.
-    Integers will be scaled to [-1, 1] in float32.
+    """
+    Convert audio samples to float32 format. This function normalizes integer samples to the range [-1, 1].
+
+    Parameters:
+    samples (np.ndarray): Input audio samples.
+
+    Returns:
+    np.ndarray: Audio samples in float32 format.
     """
     float32_samples = samples.astype('float32')
     if samples.dtype in np.sctypes['int']:
@@ -24,8 +28,19 @@ def convert_samples_to_float32(samples):
         raise TypeError("Unsupported sample type: %s." % samples.dtype)
     return float32_samples
 
-
 def load_audio(audio_file):
+    """
+    Load and preprocess an audio file. The function converts the audio to mono, resamples to 16 kHz, and converts
+    samples to float32 format suitable for deep learning models.
+
+    Parameters:
+    audio_file (str): Path to the audio file.
+
+    Returns:
+    tuple: A tuple containing:
+        - features (torch.Tensor): Preprocessed audio features.
+        - length (torch.Tensor): Length of the audio sequence.
+    """
     samples = AudioSegment.from_file(audio_file)
     sample_rate = samples.frame_rate
     target_sr = 16000
@@ -45,12 +60,14 @@ def load_audio(audio_file):
     length = torch.tensor([features.shape[1]]).long()
     return features, length
 
-
 if __name__ == "__main__":
-    
+    """
+    Main function to load a pre-trained speech recognition model, preprocess audio files, quantize the model for mobile,
+    and save the optimized model.
+    """
     vocabulary = torch.load("Path_to_Vocab.pt")
     preprocessor = torch.jit.load("Path_to_CPU_model_preprocessor", map_location="cpu")
-    scripted_model = torch.jit.load("Pathto_CPU_model", map_location="cpu")
+    scripted_model = torch.jit.load("Path_to_CPU_model", map_location="cpu")
 
     torch.backends.quantized.engine = 'qnnpack'
     model = SpeechRecognizer(scripted_model, preprocessor, vocabulary)
@@ -60,6 +77,4 @@ if __name__ == "__main__":
 
     optimized_model = optimize_for_mobile(quantized_model)
 
-    torch.jit.save(quantized_model,"Path_to_save_dynamic_quantized_model")
-
-    
+    torch.jit.save(quantized_model, "Path_to_save_dynamic_quantized_model")
